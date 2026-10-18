@@ -6,7 +6,7 @@ This project is an interactive E-Commerce Sales Analysis report built in Microso
 The report is designed to summarize sales and invoice activity, provide time-based analysis, and allow users to explore country/region and product performance.
 
 ## Dashboard Preview
-![E-Commerce Sales Analysis Dashboard](screenshots/ecommerce_sales_dashboard.png)
+![E-Commerce Sales Analysis Dashboard](https://github.com/Mala-chetan/E-commerce-Sales-Analysis/blob/main/Screenshot%202026-10-18%20234848.png)
 
 ## Dashboard Pages and Visuals
 
