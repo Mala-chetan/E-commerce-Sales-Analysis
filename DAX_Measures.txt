@@ -1,0 +1,294 @@
+E-COMMERCE SALES ANALYSIS — DAX MEASURES
+========================================
+
+IMPORTANT
+---------
+The PBIX report references measure names including:
+Total Sales, Total Invoices, Total Quantity, Total Stocks,
+Latest Month Sales, Latest Month Invoices, Latest Month Quantity,
+Latest Month Stocks, MoM Sales %, MoM Invoices %, MoM Quantity %,
+MoM Stocks %, Cancelled Invoices %, % contribution, Total Customers,
+Highlight_Max_Value, and Highlight_Min_Value.
+
+The original DAX expressions and complete source schema have not been confirmed.
+The formulas below are recommended templates, not a claim that they are the original formulas.
+
+ASSUMED EXAMPLE MODEL
+---------------------
+Fact table: 'Online Retail'
+Example columns:
+  'Online Retail'[InvoiceNo]
+  'Online Retail'[InvoiceDate]
+  'Online Retail'[Quantity]
+  'Online Retail'[UnitPrice]
+  'Online Retail'[StockCode]
+  'Online Retail'[CustomerID]
+  'Online Retail'[Country]
+
+Change the sample names to match the Fields pane in your PBIX. If the source already
+contains a revenue/sales column, use it instead of calculating Quantity * UnitPrice.
+
+1. BASE MEASURES
+----------------
+
+Total Sales =
+SUMX(
+    'Online Retail',
+    'Online Retail'[Quantity] * 'Online Retail'[UnitPrice]
+)
+
+Total Invoices =
+DISTINCTCOUNT('Online Retail'[InvoiceNo])
+
+Total Quantity =
+SUM('Online Retail'[Quantity])
+
+Total Stocks =
+DISTINCTCOUNT('Online Retail'[StockCode])
+
+Total Customers =
+DISTINCTCOUNT('Online Retail'[CustomerID])
+
+Definition notes:
+- Total Stocks above counts distinct stock/product codes. It does NOT calculate physical stock on hand.
+- Negative quantities may represent returns or credit notes.
+- Some retail datasets identify cancelled invoices with a leading "C"; verify this convention first.
+
+2. CANCELLED INVOICES — ONLY IF PREFIX "C" IS USED
+-------------------------------------------------
+
+Cancelled Invoices =
+CALCULATE(
+    DISTINCTCOUNT('Online Retail'[InvoiceNo]),
+    FILTER(
+        'Online Retail',
+        LEFT('Online Retail'[InvoiceNo], 1) = "C"
+    )
+)
+
+Cancelled Invoices % =
+DIVIDE(
+    [Cancelled Invoices],
+    [Total Invoices],
+    0
+)
+
+Format Cancelled Invoices % as Percentage.
+Use only if cancelled invoice IDs can be identified using a leading C. If the source has
+a cancellation flag or another business rule, use that rule instead. Confirm the correct
+denominator for the percentage.
+
+3. DATE TABLE FOR TIME INTELLIGENCE
+-----------------------------------
+
+Create a calendar table (Modeling > New table):
+
+Date =
+CALENDAR(
+    MIN('Online Retail'[InvoiceDate]),
+    MAX('Online Retail'[InvoiceDate])
+)
+
+Create these calculated columns in the Date table:
+
+Year = YEAR('Date'[Date])
+
+Month Number = MONTH('Date'[Date])
+
+Month = FORMAT('Date'[Date], "MMM")
+
+Year-Month = FORMAT('Date'[Date], "YYYY-MM")
+
+Sort Date[Month] by Date[Month Number].
+For multi-year visuals, use Year-Month and sort chronologically.
+Mark Date as the date table and create a one-to-many relationship from Date[Date]
+to a date-only column in the transaction table. If InvoiceDate contains time, create
+a date-only column in Power Query or DAX first.
+
+4. PREVIOUS MONTH AND MONTH-OVER-MONTH MEASURES
+-----------------------------------------------
+
+Previous Month Sales =
+CALCULATE(
+    [Total Sales],
+    DATEADD('Date'[Date], -1, MONTH)
+)
+
+MoM Sales % =
+DIVIDE(
+    [Total Sales] - [Previous Month Sales],
+    [Previous Month Sales]
+)
+
+Previous Month Invoices =
+CALCULATE(
+    [Total Invoices],
+    DATEADD('Date'[Date], -1, MONTH)
+)
+
+MoM Invoices % =
+DIVIDE(
+    [Total Invoices] - [Previous Month Invoices],
+    [Previous Month Invoices]
+)
+
+Previous Month Quantity =
+CALCULATE(
+    [Total Quantity],
+    DATEADD('Date'[Date], -1, MONTH)
+)
+
+MoM Quantity % =
+DIVIDE(
+    [Total Quantity] - [Previous Month Quantity],
+    [Previous Month Quantity]
+)
+
+Previous Month Stocks =
+CALCULATE(
+    [Total Stocks],
+    DATEADD('Date'[Date], -1, MONTH)
+)
+
+MoM Stocks % =
+DIVIDE(
+    [Total Stocks] - [Previous Month Stocks],
+    [Previous Month Stocks]
+)
+
+Format all MoM measures as Percentage. These measures need a continuous Date table and
+an active relationship. The first month may have no previous-month value.
+
+5. LATEST MONTH MEASURES
+------------------------
+These examples find the latest date in the data while removing date filters. Other
+report filters may still affect the result depending on the model.
+
+Latest Month Sales =
+VAR LatestDate =
+    CALCULATE(MAX('Date'[Date]), REMOVEFILTERS('Date'))
+VAR MonthStart =
+    DATE(YEAR(LatestDate), MONTH(LatestDate), 1)
+VAR NextMonth =
+    EDATE(MonthStart, 1)
+RETURN
+    CALCULATE(
+        [Total Sales],
+        FILTER(
+            ALL('Date'[Date]),
+            'Date'[Date] >= MonthStart &&
+            'Date'[Date] < NextMonth
+        )
+    )
+
+Latest Month Invoices =
+VAR LatestDate =
+    CALCULATE(MAX('Date'[Date]), REMOVEFILTERS('Date'))
+VAR MonthStart =
+    DATE(YEAR(LatestDate), MONTH(LatestDate), 1)
+VAR NextMonth =
+    EDATE(MonthStart, 1)
+RETURN
+    CALCULATE(
+        [Total Invoices],
+        FILTER(
+            ALL('Date'[Date]),
+            'Date'[Date] >= MonthStart &&
+            'Date'[Date] < NextMonth
+        )
+    )
+
+Latest Month Quantity =
+VAR LatestDate =
+    CALCULATE(MAX('Date'[Date]), REMOVEFILTERS('Date'))
+VAR MonthStart =
+    DATE(YEAR(LatestDate), MONTH(LatestDate), 1)
+VAR NextMonth =
+    EDATE(MonthStart, 1)
+RETURN
+    CALCULATE(
+        [Total Quantity],
+        FILTER(
+            ALL('Date'[Date]),
+            'Date'[Date] >= MonthStart &&
+            'Date'[Date] < NextMonth
+        )
+    )
+
+Latest Month Stocks =
+VAR LatestDate =
+    CALCULATE(MAX('Date'[Date]), REMOVEFILTERS('Date'))
+VAR MonthStart =
+    DATE(YEAR(LatestDate), MONTH(LatestDate), 1)
+VAR NextMonth =
+    EDATE(MonthStart, 1)
+RETURN
+    CALCULATE(
+        [Total Stocks],
+        FILTER(
+            ALL('Date'[Date]),
+            'Date'[Date] >= MonthStart &&
+            'Date'[Date] < NextMonth
+        )
+    )
+
+Warning: if Total Stocks counts distinct StockCode values, Latest Month Stocks counts
+distinct product codes represented in the month's transactions; it is not inventory on hand.
+
+6. PERCENTAGE CONTRIBUTION
+--------------------------
+
+% contribution =
+DIVIDE(
+    [Total Sales],
+    CALCULATE(
+        [Total Sales],
+        ALLSELECTED('Online Retail'[Country])
+    )
+)
+
+This calculates a country's share against the currently selected countries. For a product
+or category chart, replace Country with the appropriate product/category field. Confirm
+whether the denominator should represent all data or only the current selection.
+
+7. OPTIONAL MAXIMUM / MINIMUM HIGHLIGHT MEASURES
+------------------------------------------------
+
+Highlight_Max_Value =
+VAR CurrentValue = [Total Sales]
+VAR MaxValue =
+    MAXX(
+        ALLSELECTED('Online Retail'[Country]),
+        CALCULATE([Total Sales])
+    )
+RETURN
+    IF(CurrentValue = MaxValue, 1, 0)
+
+Highlight_Min_Value =
+VAR CurrentValue = [Total Sales]
+VAR MinValue =
+    MINX(
+        ALLSELECTED('Online Retail'[Country]),
+        CALCULATE([Total Sales])
+    )
+RETURN
+    IF(CurrentValue = MinValue, 1, 0)
+
+These are visual-helper examples. For product visuals, replace Country with the product/category
+field. Configure conditional formatting separately in the visual.
+
+8. FORMATTING AND VALIDATION CHECKLIST
+--------------------------------------
+[ ] Replace the sample table and column names with names from your actual model.
+[ ] Confirm the definition and currency of Total Sales.
+[ ] Confirm how cancelled invoices are identified.
+[ ] Decide whether returns/negative quantities are included.
+[ ] Confirm the meaning of Stocks.
+[ ] Format MoM and cancellation measures as percentages.
+[ ] Format sales as the correct currency.
+[ ] Check Date table relationship and sort order.
+[ ] Compare measures with the original report and source data.
+[ ] Test measures with and without slicers.
+
+Do not publish numerical business conclusions until the source values and measure
+definitions have been checked in Power BI Desktop.
